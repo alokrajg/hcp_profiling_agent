@@ -7,10 +7,15 @@ import pandas as pd
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from .models import HCPProfile, BatchProfileRequest, EmailDispatchRequest
 from .services.profile_agent import ProfileAgent
 from .services.emailer import Emailer
+from .services.agents import run_agents_orchestrator
 
 app = FastAPI(title="HCP Profiling Backend", version="0.1.0")
 
@@ -91,6 +96,16 @@ async def profile_batch(request: BatchProfileRequest) -> List[HCPProfile]:
         raise HTTPException(status_code=400, detail="npi_list cannot be empty")
     profiles = await agent.generate_profiles(request.npi_list, request.max_results_per_source)
     return profiles
+
+
+@app.post("/profile/agents")
+async def profile_agents(request: BatchProfileRequest) -> List[dict]:
+    if not request.npi_list:
+        raise HTTPException(status_code=400, detail="npi_list cannot be empty")
+    outputs = []
+    for npi in request.npi_list:
+        outputs.append(await run_agents_orchestrator(npi))
+    return outputs
 
 
 @app.post("/email/dispatch")

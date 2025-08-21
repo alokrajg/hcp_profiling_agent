@@ -92,3 +92,14 @@ npm run start   # serves on port 3000
 ---
 
 If you need help running on another host (separate backend/frontends), set `BACKEND_URL` on the frontend machine to the backend’s URL (e.g., `http://<backend-host>:8001`).
+
+Multi-Agent Pipeline:
+NPI Lookup Agent: Fetches basic provider information from NPI Registry
+PubMed Research Agent: Searches for academic publications and research
+Web Crawling Agent: Finds social media profiles and online presence via DuckDuckGo
+Synthesis Agent: Summarizes and structures collected data
+Advanced Orchestration:
+LangGraph Integration: Multi-step workflow with state management
+Fallback System: Sequential processing when LangGraph unavailable
+Error Resilience: Retry logic and graceful error handling
+Scalable Architecture: Easy to add new agents and data sources

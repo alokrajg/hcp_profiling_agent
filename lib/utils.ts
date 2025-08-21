@@ -21,7 +21,7 @@ export async function uploadNpiFile(file: File): Promise<string[]> {
 }
 
 export interface BackendProfile {
-  id: string;
+  id?: string; // Optional for agents response
   fullName: string;
   specialty: string;
   affiliation: string;
@@ -35,12 +35,28 @@ export interface BackendProfile {
   engagementStyle: string;
   confidence: number;
   summary: string;
+  // Add fields for agents response
+  npi?: string;
+  pubmed?: any;
+  web?: any[];
 }
 
 export async function fetchProfiles(
   npiList: string[]
 ): Promise<BackendProfile[]> {
   const res = await fetch(`/api/profile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ npi_list: npiList }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json();
+}
+
+export async function fetchProfilesWithAgents(
+  npiList: string[]
+): Promise<BackendProfile[]> {
+  const res = await fetch(`/api/profile/agents`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ npi_list: npiList }),

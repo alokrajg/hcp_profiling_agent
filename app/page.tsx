@@ -42,7 +42,11 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { fetchProfiles, uploadNpiFile, type BackendProfile } from "@/lib/utils";
+import {
+  fetchProfilesWithAgents,
+  uploadNpiFile,
+  type BackendProfile,
+} from "@/lib/utils";
 
 interface HCP {
   id: number;
@@ -82,6 +86,10 @@ interface HCPProfile {
   engagementStyle: string;
   confidence: number;
   summary: string;
+  // Agent-specific fields
+  npi?: string;
+  pubmed?: any;
+  web?: any[];
 }
 
 export default function HCPProfilingTool() {
@@ -155,24 +163,38 @@ export default function HCPProfilingTool() {
     setProgress(100 / processingSteps.length);
 
     try {
-      const backendProfiles: BackendProfile[] = await fetchProfiles(npiList);
+      const backendProfiles: BackendProfile[] = await fetchProfilesWithAgents(
+        npiList
+      );
       // Map backend profiles to UI type (ids are strings from NPI)
-      const uiProfiles: HCPProfile[] = backendProfiles.map((p) => ({
-        id: Number(p.id) || Date.now(),
-        fullName: p.fullName,
-        specialty: p.specialty,
-        affiliation: p.affiliation,
-        location: p.location,
-        degrees: p.degrees,
-        socialMediaHandles: p.socialMediaHandles || {},
-        followers: p.followers || {},
-        topInterests: p.topInterests || [],
-        recentActivity: p.recentActivity || "",
-        publications: p.publications || 0,
-        engagementStyle: p.engagementStyle || "",
-        confidence: p.confidence || 80,
-        summary: p.summary || "",
-      }));
+      const uiProfiles: HCPProfile[] = backendProfiles.map((p, index) => {
+        // Ensure unique ID - use NPI if available, otherwise generate unique ID
+        const uniqueId = p.npi
+          ? Number(p.npi)
+          : Date.now() + index + Math.random();
+
+        return {
+          id: uniqueId,
+          fullName:
+            p.fullName || (p.npi ? `NPI ${p.npi}` : `Profile ${index + 1}`),
+          specialty: p.specialty || "",
+          affiliation: p.affiliation || "",
+          location: p.location || "",
+          degrees: p.degrees || "",
+          socialMediaHandles: p.socialMediaHandles || {},
+          followers: p.followers || {},
+          topInterests: p.topInterests || [],
+          recentActivity: p.recentActivity || "",
+          publications: p.publications || 0,
+          engagementStyle: p.engagementStyle || "",
+          confidence: p.confidence || 80,
+          summary: p.summary || "",
+          // Agent-specific fields
+          npi: p.npi,
+          pubmed: p.pubmed,
+          web: p.web,
+        };
+      });
 
       // Finish the step progress animation
       for (let step = 1; step < processingSteps.length; step++) {
@@ -285,8 +307,20 @@ export default function HCPProfilingTool() {
       </header>
 
       <main className="max-w-7xl mx-auto px-8 py-10">
-        <div className="grid gap-8 xl:grid-cols-5">
-          <div className="xl:col-span-2 space-y-8">
+        <div
+          className={`grid gap-8 ${
+            processingStatus === "completed" && profiles.length > 0
+              ? "xl:grid-cols-1"
+              : "xl:grid-cols-5"
+          }`}
+        >
+          <div
+            className={`${
+              processingStatus === "completed" && profiles.length > 0
+                ? "hidden"
+                : "xl:col-span-2"
+            } space-y-8`}
+          >
             <Card>
               <CardHeader className="pb-6">
                 <CardTitle className="flex items-center justify-between text-xl">
@@ -383,7 +417,13 @@ export default function HCPProfilingTool() {
             </Card>
           </div>
 
-          <div className="xl:col-span-3 space-y-8">
+          <div
+            className={`${
+              processingStatus === "completed" && profiles.length > 0
+                ? "xl:col-span-1"
+                : "xl:col-span-3"
+            } space-y-8`}
+          >
             {processingStatus !== "idle" && (
               <Card>
                 <CardHeader className="pb-6">
@@ -443,9 +483,20 @@ export default function HCPProfilingTool() {
             {processingStatus === "completed" && profiles.length > 0 && (
               <Card>
                 <CardHeader className="pb-6">
-                  <CardTitle className="flex items-center gap-3 text-xl">
-                    <FileText className="h-6 w-6 text-primary" />
-                    Comprehensive HCP Profiles
+                  <CardTitle className="flex items-center justify-between text-xl">
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-6 w-6 text-primary" />
+                      Comprehensive HCP Profiles
+                    </div>
+                    <Button
+                      onClick={reset}
+                      variant="outline"
+                      size="sm"
+                      className="px-4"
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload More
+                    </Button>
                   </CardTitle>
                   <CardDescription className="text-base">
                     AI-generated detailed professional profiles ready for
@@ -472,13 +523,13 @@ export default function HCPProfilingTool() {
 
                   <div className="border rounded-xl shadow-sm bg-card">
                     <div className="w-full overflow-x-auto">
-                      <ScrollArea className="h-[600px] w-full">
-                        <Table className="min-w-[1200px]">
+                      <ScrollArea className="h-[700px] w-full">
+                        <Table className="w-full">
                           <TableHeader className="sticky top-0 bg-card border-b-2 border-border z-10">
                             <TableRow className="hover:bg-transparent">
-                              <TableHead className="w-12 font-bold text-card-foreground py-4 px-4"></TableHead>
+                              <TableHead className="w-16 font-bold text-card-foreground py-4 px-2"></TableHead>
                               <TableHead
-                                className="w-48 font-bold text-card-foreground py-4 px-6 cursor-pointer hover:bg-muted/20"
+                                className="font-bold text-card-foreground py-4 px-4 cursor-pointer hover:bg-muted/20"
                                 onClick={() => handleSort("fullName")}
                               >
                                 <div className="flex items-center gap-2">
@@ -487,7 +538,7 @@ export default function HCPProfilingTool() {
                                 </div>
                               </TableHead>
                               <TableHead
-                                className="w-36 font-bold text-card-foreground py-4 cursor-pointer hover:bg-muted/20"
+                                className="font-bold text-card-foreground py-4 px-4 cursor-pointer hover:bg-muted/20"
                                 onClick={() => handleSort("specialty")}
                               >
                                 <div className="flex items-center gap-2">
@@ -496,7 +547,7 @@ export default function HCPProfilingTool() {
                                 </div>
                               </TableHead>
                               <TableHead
-                                className="w-48 font-bold text-card-foreground py-4 cursor-pointer hover:bg-muted/20"
+                                className="font-bold text-card-foreground py-4 px-4 cursor-pointer hover:bg-muted/20"
                                 onClick={() => handleSort("affiliation")}
                               >
                                 <div className="flex items-center gap-2">
@@ -504,20 +555,20 @@ export default function HCPProfilingTool() {
                                   <ArrowUpDown className="h-4 w-4" />
                                 </div>
                               </TableHead>
-                              <TableHead className="w-36 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Location
                               </TableHead>
-                              <TableHead className="w-28 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Degrees
                               </TableHead>
-                              <TableHead className="w-44 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Social Media
                               </TableHead>
-                              <TableHead className="w-36 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Followers
                               </TableHead>
                               <TableHead
-                                className="w-28 font-bold text-card-foreground py-4 cursor-pointer hover:bg-muted/20"
+                                className="font-bold text-card-foreground py-4 px-4 cursor-pointer hover:bg-muted/20"
                                 onClick={() => handleSort("publications")}
                               >
                                 <div className="flex items-center gap-2">
@@ -525,23 +576,38 @@ export default function HCPProfilingTool() {
                                   <ArrowUpDown className="h-4 w-4" />
                                 </div>
                               </TableHead>
-                              <TableHead className="w-52 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Top Interests
                               </TableHead>
-                              <TableHead className="w-60 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Recent Activity
                               </TableHead>
-                              <TableHead className="w-44 font-bold text-card-foreground py-4">
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 Engagement Style
                               </TableHead>
                               <TableHead
-                                className="w-28 font-bold text-card-foreground py-4 cursor-pointer hover:bg-muted/20"
+                                className="font-bold text-card-foreground py-4 px-4 cursor-pointer hover:bg-muted/20"
                                 onClick={() => handleSort("confidence")}
                               >
                                 <div className="flex items-center gap-2">
                                   Confidence
                                   <ArrowUpDown className="h-4 w-4" />
                                 </div>
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                <div className="flex items-center gap-2">
+                                  <BookOpen className="h-4 w-4" />
+                                  PubMed Results
+                                </div>
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                <div className="flex items-center gap-2">
+                                  <Globe className="h-4 w-4" />
+                                  Web Results
+                                </div>
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                NPI ID
                               </TableHead>
                             </TableRow>
                           </TableHeader>
@@ -684,11 +750,52 @@ export default function HCPProfilingTool() {
                                       </Badge>
                                     </div>
                                   </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      {profile.pubmed ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
+                                          {profile.pubmed?.esearchresult
+                                            ?.count || 0}{" "}
+                                          papers
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          No data
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      {profile.web && profile.web.length > 0 ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-xs"
+                                        >
+                                          {profile.web.length} results
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          No data
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <code className="text-xs bg-muted px-2 py-1 rounded">
+                                        {profile.npi || "N/A"}
+                                      </code>
+                                    </div>
+                                  </TableCell>
                                 </TableRow>
                                 {expandedRows.has(profile.id) && (
                                   <TableRow className="bg-muted/5 border-b">
-                                    <TableCell colSpan={12} className="py-6">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-card rounded-lg border">
+                                    <TableCell colSpan={15} className="py-6">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 bg-card rounded-lg border">
                                         <div>
                                           <h4 className="font-semibold text-sm mb-3 text-primary">
                                             Professional Summary
@@ -713,6 +820,38 @@ export default function HCPProfilingTool() {
                                                 </Badge>
                                               )
                                             )}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <h4 className="font-semibold text-sm mb-3 text-primary">
+                                            Agent Data
+                                          </h4>
+                                          <div className="space-y-2 text-xs">
+                                            <div>
+                                              <strong>NPI:</strong>{" "}
+                                              {profile.npi || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>PubMed Papers:</strong>{" "}
+                                              {profile.pubmed?.esearchresult
+                                                ?.count || 0}
+                                            </div>
+                                            <div>
+                                              <strong>Web Results:</strong>{" "}
+                                              {profile.web?.length || 0}
+                                            </div>
+                                            {profile.web &&
+                                              profile.web.length > 0 && (
+                                                <div className="mt-2">
+                                                  <strong>
+                                                    Top Web Result:
+                                                  </strong>
+                                                  <div className="text-muted-foreground truncate">
+                                                    {profile.web[0]?.title ||
+                                                      "N/A"}
+                                                  </div>
+                                                </div>
+                                              )}
                                           </div>
                                         </div>
                                       </div>
