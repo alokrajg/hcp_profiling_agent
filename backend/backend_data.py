@@ -18,18 +18,13 @@ d = gender.Detector(case_sensitive=False)
 # Load environment variables
 load_dotenv()
 
-# ========= SETUP AZURE OPENAI CLIENT =========
-AZURE_API_KEY = os.getenv("AZURE_API_KEY", "your-key-here")
-AZURE_API_BASE = os.getenv("AZURE_API_BASE", "https://axtria-institute-training.openai.azure.com/")
-AZURE_API_VERSION = os.getenv("AZURE_API_VERSION", "2024-12-01-preview")
-DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME", "gpt-4o-mini")
+# ========= SETUP OPENAI CLIENT =========
+from openai import OpenAI
 
-client = AzureOpenAI(
-    api_key=AZURE_API_KEY,
-    api_version=AZURE_API_VERSION,
-    azure_endpoint=AZURE_API_BASE
-)
-DEPLOYMENT_NAME = os.getenv("DEPLOYMENT_NAME")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+
+# Use standard OpenAI client
+client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
 
 # =======================
 # Base Agent
@@ -39,9 +34,12 @@ class Agent:
         raise NotImplementedError
 
     def call_llm(self, prompt):
+        if not client:
+            print("[WARNING] OpenAI client not available - using fallback data")
+            return None
         try:
             resp = client.chat.completions.create(
-                model=DEPLOYMENT_NAME,
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are a structured data processing agent."},
                     {"role": "user", "content": prompt}
@@ -325,6 +323,74 @@ def process_npi_list(npi_list, output_path="hcp_profiles.xlsx"):
     df = pd.DataFrame(profiles)
     df.to_excel(output_path, index=False)
     print(f"✅ Saved {len(profiles)} profiles to {output_path}")
+
+def process_npis_to_data(npi_list):
+    """
+    Process NPIs and return the profile data as a list of dictionaries.
+    This function is used by the Next.js API to get data without saving to Excel.
+    """
+    agents = [NPIAgent(), PubMedAgentWithImpact(), ClinicalTrialsAgent()]
+    profiles = []
+
+    for npi in npi_list:
+        profile = {}
+        for agent in agents:
+            profile = agent.run(npi, profile)
+
+        # Ensure all required fields are present with fallback values
+        profile = ensure_profile_completeness(profile, npi)
+
+        # Clean up list fields before returning
+        for key, value in profile.items():
+            if isinstance(value, list):
+                profile[key] = ", ".join(map(str, value))  # join list into string
+                
+        profiles.append(profile)
+
+    return profiles
+
+def ensure_profile_completeness(profile, npi):
+    """
+    Ensure all required fields are present in the profile with fallback values.
+    """
+    # Basic profile structure with fallback values
+    complete_profile = {
+        "npi": npi,
+        "fullName": profile.get("full_name", f"NPI {npi}"),
+        "specialty": profile.get("specialty", "Specialty Not Available"),
+        "affiliation": profile.get("affiliations", ""),
+        "location": profile.get("location", ""),
+        "degrees": profile.get("Education", ""),
+        "gender": profile.get("Gender", ""),
+        "publicationYears": profile.get("publication_years", ""),
+        "topPublicationJournals": profile.get("top_publication_journals", ""),
+        "topPublicationTitles": profile.get("top_publication_titles", ""),
+        "journalClassification": profile.get("journal_classification", ""),
+        "researchPrestigeScore": profile.get("research_prestige_score", 0),
+        "topInfluentialPublications": profile.get("top_influential_publications", ""),
+        "totalTrials": profile.get("total_trials", 0),
+        "activeTrials": profile.get("active_trials", 0),
+        "completedTrials": profile.get("completed_trials", 0),
+        "conditions": profile.get("conditions", ""),
+        "interventions": profile.get("interventions", ""),
+        "roles": profile.get("roles", ""),
+        "trialInvolvement": profile.get("trial_involvement", "None"),
+        "leadershipRoles": profile.get("leadership_roles", ""),
+        "impactSummary": profile.get("impact_summary", ""),
+        # Additional fields for UI compatibility
+        "socialMediaHandles": {"twitter": "", "linkedin": ""},
+        "followers": {"twitter": "0", "linkedin": "0"},
+        "topInterests": [],
+        "recentActivity": "",
+        "publications": profile.get("num_publications", 0),
+        "engagementStyle": "",
+        "confidence": 80,
+        "summary": "",
+        "pubmed": {"esearchresult": {"count": profile.get("num_publications", 0)}},
+        "web": []
+    }
+    
+    return complete_profile
 
 # =======================
 # Example Run

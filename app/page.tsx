@@ -90,6 +90,23 @@ interface HCPProfile {
   npi?: string;
   pubmed?: any;
   web?: any[];
+  // New fields from backend_data.py
+  gender?: string;
+  publicationYears?: string;
+  topPublicationJournals?: string;
+  topPublicationTitles?: string;
+  journalClassification?: string;
+  researchPrestigeScore?: number;
+  topInfluentialPublications?: string;
+  totalTrials?: number;
+  activeTrials?: number;
+  completedTrials?: number;
+  conditions?: string;
+  interventions?: string;
+  roles?: string;
+  trialInvolvement?: string;
+  leadershipRoles?: string;
+  impactSummary?: string;
 }
 
 export default function HCPProfilingTool() {
@@ -106,6 +123,7 @@ export default function HCPProfilingTool() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [npiList, setNpiList] = useState<string[]>([]);
+  const [showingDummyData, setShowingDummyData] = useState(false);
 
   const processingSteps = [
     {
@@ -163,6 +181,7 @@ export default function HCPProfilingTool() {
 
     setProcessingStatus("processing");
     setProgress(0);
+    setShowingDummyData(false);
 
     // Simulate step progress UI while making the real API call
     setCurrentStep(0);
@@ -199,6 +218,23 @@ export default function HCPProfilingTool() {
           npi: p.npi,
           pubmed: p.pubmed,
           web: p.web,
+          // New fields from backend_data.py
+          gender: p.gender || "",
+          publicationYears: p.publicationYears || "",
+          topPublicationJournals: p.topPublicationJournals || "",
+          topPublicationTitles: p.topPublicationTitles || "",
+          journalClassification: p.journalClassification || "",
+          researchPrestigeScore: p.researchPrestigeScore || 0,
+          topInfluentialPublications: p.topInfluentialPublications || "",
+          totalTrials: p.totalTrials || 0,
+          activeTrials: p.activeTrials || 0,
+          completedTrials: p.completedTrials || 0,
+          conditions: p.conditions || "",
+          interventions: p.interventions || "",
+          roles: p.roles || "",
+          trialInvolvement: p.trialInvolvement || "",
+          leadershipRoles: p.leadershipRoles || "",
+          impactSummary: p.impactSummary || "",
         };
       });
 
@@ -213,7 +249,57 @@ export default function HCPProfilingTool() {
       setProcessingStatus("completed");
     } catch (err) {
       console.error(err);
-      setProcessingStatus("idle");
+      // Even if there's an error, show dummy profiles to maintain UI consistency
+      setShowingDummyData(true);
+      const dummyProfiles = currentNpis.map((npi, index) => ({
+        id: Date.now() + index,
+        fullName: `NPI ${npi}`,
+        specialty: "Specialty Not Available",
+        affiliation: "",
+        location: "",
+        degrees: "",
+        socialMediaHandles: {
+          twitter: "",
+          linkedin: "",
+        },
+        followers: {
+          twitter: "0",
+          linkedin: "0",
+        },
+        topInterests: [],
+        recentActivity: "",
+        publications: 0,
+        engagementStyle: "",
+        confidence: 0,
+        summary: "",
+        // Agent-specific fields
+        npi: npi,
+        pubmed: {
+          esearchresult: {
+            count: 0,
+          },
+        },
+        web: [],
+        // New fields from backend_data.py (empty values)
+        gender: "",
+        publicationYears: "",
+        topPublicationJournals: "",
+        topPublicationTitles: "",
+        journalClassification: "",
+        researchPrestigeScore: 0,
+        topInfluentialPublications: "",
+        totalTrials: 0,
+        activeTrials: 0,
+        completedTrials: 0,
+        conditions: "",
+        interventions: "",
+        roles: "",
+        trialInvolvement: "",
+        leadershipRoles: "",
+        impactSummary: "",
+      }));
+      setProfiles(dummyProfiles);
+      setProcessingStatus("completed");
     }
   };
 
@@ -224,6 +310,7 @@ export default function HCPProfilingTool() {
     setProfiles([]);
     setHcpList([]);
     setNpiList([]);
+    setShowingDummyData(false);
   };
 
   const removeHCP = (id: number) => {
@@ -296,6 +383,22 @@ export default function HCPProfilingTool() {
       "Confidence",
       "NPI ID",
       "Professional Summary",
+      "Gender",
+      "Research Prestige Score",
+      "Publication Years",
+      "Top Publication Journals",
+      "Top Publication Titles",
+      "Journal Classification",
+      "Top Influential Publications",
+      "Clinical Trials",
+      "Trial Involvement",
+      "Leadership Roles",
+      "Impact Summary",
+      "Conditions",
+      "Interventions",
+      "Roles",
+      "Active Trials",
+      "Completed Trials",
     ];
 
     // Convert profiles to CSV rows
@@ -317,6 +420,22 @@ export default function HCPProfilingTool() {
           `"${profile.confidence}%"`,
           `"${profile.npi || ""}"`,
           `"${profile.summary}"`,
+          `"${profile.gender || ""}"`,
+          `"${profile.researchPrestigeScore || 0}"`,
+          `"${profile.publicationYears || ""}"`,
+          `"${profile.topPublicationJournals || ""}"`,
+          `"${profile.topPublicationTitles || ""}"`,
+          `"${profile.journalClassification || ""}"`,
+          `"${profile.topInfluentialPublications || ""}"`,
+          `"${profile.totalTrials || 0}"`,
+          `"${profile.trialInvolvement || ""}"`,
+          `"${profile.leadershipRoles || ""}"`,
+          `"${profile.impactSummary || ""}"`,
+          `"${profile.conditions || ""}"`,
+          `"${profile.interventions || ""}"`,
+          `"${profile.roles || ""}"`,
+          `"${profile.activeTrials || 0}"`,
+          `"${profile.completedTrials || 0}"`,
         ].join(",")
       ),
     ];
@@ -401,7 +520,7 @@ export default function HCPProfilingTool() {
 
       <main className="max-w-7xl mx-auto px-8 py-10">
         {/* HCP Queue - Always at top when completed */}
-        {processingStatus === "completed" && profiles.length > 0 && (
+        {processingStatus === "completed" && (
           <Card className="mb-8">
             <CardHeader className="pb-6">
               <CardTitle className="flex items-center justify-between text-xl">
@@ -668,7 +787,7 @@ export default function HCPProfilingTool() {
               </Card>
             )}
 
-            {processingStatus === "completed" && profiles.length > 0 && (
+            {processingStatus === "completed" && (
               <Card>
                 <CardHeader className="pb-6">
                   <CardTitle className="flex items-center justify-between text-xl">
@@ -689,6 +808,19 @@ export default function HCPProfilingTool() {
                   <CardDescription className="text-base">
                     AI-generated detailed professional profiles ready for
                     stakeholder dispatch
+                    {showingDummyData && (
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <div className="flex items-center gap-2 text-yellow-800">
+                          <span className="text-sm font-medium">
+                            ⚠️ API Unavailable
+                          </span>
+                          <span className="text-xs">
+                            Showing placeholder data. Real profiles will appear
+                            when API is available.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -793,6 +925,48 @@ export default function HCPProfilingTool() {
                                   <Globe className="h-4 w-4" />
                                   Web Results
                                 </div>
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Gender
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Research Score
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Clinical Trials
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Publication Years
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Top Journals
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Top Publications
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Journal Classification
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Influential Publications
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Trial Involvement
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Leadership Roles
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Impact Summary
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Conditions
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Interventions
+                              </TableHead>
+                              <TableHead className="font-bold text-card-foreground py-4 px-4">
+                                Roles
                               </TableHead>
                               <TableHead className="font-bold text-card-foreground py-4 px-4">
                                 NPI ID
@@ -974,6 +1148,126 @@ export default function HCPProfilingTool() {
                                   </TableCell>
                                   <TableCell className="py-6">
                                     <div className="text-center">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {profile.gender || "N/A"}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <Badge
+                                        variant="secondary"
+                                        className={`font-bold text-sm ${
+                                          (profile.researchPrestigeScore ||
+                                            0) >= 80
+                                            ? "bg-green-100 text-green-800"
+                                            : (profile.researchPrestigeScore ||
+                                                0) >= 60
+                                            ? "bg-blue-100 text-blue-800"
+                                            : "bg-yellow-100 text-yellow-800"
+                                        }`}
+                                      >
+                                        {profile.researchPrestigeScore || 0}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-sm font-semibold">
+                                        {profile.totalTrials || 0}
+                                      </div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {profile.trialInvolvement || "None"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-sm font-semibold">
+                                        {profile.publicationYears || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.topPublicationJournals ||
+                                          "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.topPublicationTitles || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.journalClassification || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.topInfluentialPublications ||
+                                          "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        {profile.trialInvolvement || "None"}
+                                      </Badge>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.leadershipRoles || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.impactSummary || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.conditions || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.interventions || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
+                                      <div className="text-xs text-muted-foreground max-w-32 truncate">
+                                        {profile.roles || "N/A"}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="py-6">
+                                    <div className="text-center">
                                       <code className="text-xs bg-muted px-2 py-1 rounded">
                                         {profile.npi || "N/A"}
                                       </code>
@@ -982,64 +1276,113 @@ export default function HCPProfilingTool() {
                                 </TableRow>
                                 {expandedRows.has(profile.id) && (
                                   <TableRow className="bg-muted/5 border-b">
-                                    <TableCell colSpan={15} className="py-6">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 bg-card rounded-lg border">
+                                    <TableCell colSpan={30} className="py-6">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 p-4 bg-card rounded-lg border">
                                         <div>
                                           <h4 className="font-semibold text-sm mb-3 text-primary">
                                             Professional Summary
                                           </h4>
                                           <p className="text-sm text-muted-foreground leading-relaxed">
-                                            {profile.summary}
+                                            {profile.summary ||
+                                              "No summary available"}
                                           </p>
                                         </div>
                                         <div>
                                           <h4 className="font-semibold text-sm mb-3 text-primary">
-                                            All Interests
+                                            Research Profile
                                           </h4>
-                                          <div className="flex flex-wrap gap-2">
-                                            {profile.topInterests.map(
-                                              (interest, idx) => (
-                                                <Badge
-                                                  key={idx}
-                                                  variant="outline"
-                                                  className="text-xs"
-                                                >
-                                                  {interest}
-                                                </Badge>
-                                              )
-                                            )}
+                                          <div className="space-y-2 text-xs">
+                                            <div>
+                                              <strong>Publications:</strong>{" "}
+                                              {profile.publications || 0}
+                                            </div>
+                                            <div>
+                                              <strong>Research Score:</strong>{" "}
+                                              {profile.researchPrestigeScore ||
+                                                0}
+                                            </div>
+                                            <div>
+                                              <strong>
+                                                Publication Years:
+                                              </strong>{" "}
+                                              {profile.publicationYears ||
+                                                "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Top Journals:</strong>{" "}
+                                              {profile.topPublicationJournals ||
+                                                "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>
+                                                Influential Papers:
+                                              </strong>{" "}
+                                              {profile.topInfluentialPublications ||
+                                                "N/A"}
+                                            </div>
                                           </div>
                                         </div>
                                         <div>
                                           <h4 className="font-semibold text-sm mb-3 text-primary">
-                                            Agent Data
+                                            Clinical Trials
                                           </h4>
                                           <div className="space-y-2 text-xs">
                                             <div>
-                                              <strong>NPI:</strong>{" "}
-                                              {profile.npi || "N/A"}
+                                              <strong>Total Trials:</strong>{" "}
+                                              {profile.totalTrials || 0}
                                             </div>
                                             <div>
-                                              <strong>PubMed Papers:</strong>{" "}
-                                              {profile.pubmed?.esearchresult
-                                                ?.count || 0}
+                                              <strong>Active Trials:</strong>{" "}
+                                              {profile.activeTrials || 0}
                                             </div>
                                             <div>
-                                              <strong>Web Results:</strong>{" "}
-                                              {profile.web?.length || 0}
+                                              <strong>Completed Trials:</strong>{" "}
+                                              {profile.completedTrials || 0}
                                             </div>
-                                            {profile.web &&
-                                              profile.web.length > 0 && (
-                                                <div className="mt-2">
-                                                  <strong>
-                                                    Top Web Result:
-                                                  </strong>
-                                                  <div className="text-muted-foreground truncate">
-                                                    {profile.web[0]?.title ||
-                                                      "N/A"}
-                                                  </div>
-                                                </div>
-                                              )}
+                                            <div>
+                                              <strong>Involvement:</strong>{" "}
+                                              {profile.trialInvolvement ||
+                                                "None"}
+                                            </div>
+                                            <div>
+                                              <strong>Leadership Roles:</strong>{" "}
+                                              {profile.leadershipRoles || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Conditions:</strong>{" "}
+                                              {profile.conditions || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Interventions:</strong>{" "}
+                                              {profile.interventions || "N/A"}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <h4 className="font-semibold text-sm mb-3 text-primary">
+                                            Additional Details
+                                          </h4>
+                                          <div className="space-y-2 text-xs">
+                                            <div>
+                                              <strong>Gender:</strong>{" "}
+                                              {profile.gender || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Degrees:</strong>{" "}
+                                              {profile.degrees || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Location:</strong>{" "}
+                                              {profile.location || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Impact Summary:</strong>{" "}
+                                              {profile.impactSummary || "N/A"}
+                                            </div>
+                                            <div>
+                                              <strong>Roles:</strong>{" "}
+                                              {profile.roles || "N/A"}
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
