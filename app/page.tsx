@@ -153,7 +153,13 @@ export default function HCPProfilingTool() {
   ];
 
   const startProcessing = async () => {
-    if (npiList.length === 0) return;
+    // Use current hcpList to get NPIs, or fallback to npiList
+    const currentNpis =
+      hcpList.length > 0
+        ? hcpList.map((hcp) => hcp.name.replace("NPI ", ""))
+        : npiList;
+
+    if (currentNpis.length === 0) return;
 
     setProcessingStatus("processing");
     setProgress(0);
@@ -164,7 +170,7 @@ export default function HCPProfilingTool() {
 
     try {
       const backendProfiles: BackendProfile[] = await fetchProfilesWithAgents(
-        npiList
+        currentNpis
       );
       // Map backend profiles to UI type (ids are strings from NPI)
       const uiProfiles: HCPProfile[] = backendProfiles.map((p, index) => {
@@ -221,11 +227,18 @@ export default function HCPProfilingTool() {
   };
 
   const removeHCP = (id: number) => {
-    setHcpList(hcpList.filter((hcp) => hcp.id !== id));
+    const updatedHcpList = hcpList.filter((hcp) => hcp.id !== id);
+    setHcpList(updatedHcpList);
+
+    // Also update npiList to keep them in sync
+    const updatedNpis = updatedHcpList.map((hcp) =>
+      hcp.name.replace("NPI ", "")
+    );
+    setNpiList(updatedNpis);
   };
 
   const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement> | { target: { files: FileList } }
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -242,6 +255,86 @@ export default function HCPProfilingTool() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleDragDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload({ target: { files } });
+    }
+  };
+
+  // Custom hook for drag and drop functionality
+  const useDragAndDrop = () => {
+    return {
+      onDrop: handleDragDrop,
+      onDragOver: (e: React.DragEvent) => e.preventDefault(),
+      onDragEnter: (e: React.DragEvent) => e.preventDefault(),
+    };
+  };
+
+  const dragDropHandlers = useDragAndDrop();
+
+  // Export profiles to CSV
+  const exportToCSV = () => {
+    if (profiles.length === 0) return;
+
+    // Define CSV headers
+    const headers = [
+      "Full Name",
+      "Specialty",
+      "Affiliation",
+      "Location",
+      "Degrees",
+      "Social Media",
+      "Followers",
+      "Publications",
+      "Top Interests",
+      "Recent Activity",
+      "Engagement Style",
+      "Confidence",
+      "NPI ID",
+      "Professional Summary",
+    ];
+
+    // Convert profiles to CSV rows
+    const csvRows = [
+      headers.join(","),
+      ...profiles.map((profile) =>
+        [
+          `"${profile.fullName}"`,
+          `"${profile.specialty}"`,
+          `"${profile.affiliation}"`,
+          `"${profile.location}"`,
+          `"${profile.degrees}"`,
+          `"${profile.socialMediaHandles.linkedin || ""}"`,
+          `"${profile.followers.linkedin || 0}"`,
+          `"${profile.publications}"`,
+          `"${profile.topInterests.join("; ")}"`,
+          `"${profile.recentActivity}"`,
+          `"${profile.engagementStyle}"`,
+          `"${profile.confidence}%"`,
+          `"${profile.npi || ""}"`,
+          `"${profile.summary}"`,
+        ].join(",")
+      ),
+    ];
+
+    // Create and download CSV file
+    const csvContent = csvRows.join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `hcp_profiles_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleSort = (field: keyof HCPProfile) => {
@@ -307,6 +400,98 @@ export default function HCPProfilingTool() {
       </header>
 
       <main className="max-w-7xl mx-auto px-8 py-10">
+        {/* HCP Queue - Always at top when completed */}
+        {processingStatus === "completed" && profiles.length > 0 && (
+          <Card className="mb-8">
+            <CardHeader className="pb-6">
+              <CardTitle className="flex items-center justify-between text-xl">
+                <span>HCP Queue ({hcpList.length})</span>
+                {hcpList.length > 0 && (
+                  <Button onClick={startProcessing} size="lg" className="px-6">
+                    <Brain className="mr-2 h-5 w-5" />
+                    Start AI Analysis
+                  </Button>
+                )}
+                {hcpList.length === 0 && (
+                  <Button
+                    onClick={reset}
+                    variant="outline"
+                    size="lg"
+                    className="px-6 bg-transparent"
+                  >
+                    Reset
+                  </Button>
+                )}
+              </CardTitle>
+              <CardDescription className="text-base">
+                Healthcare professionals ready for comprehensive AI analysis
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-6">
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors relative"
+                  {...dragDropHandlers}
+                >
+                  <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">
+                      Drag & drop Excel file with HCP list
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports .xlsx/.xls/.csv files with NPI column
+                    </p>
+                  </div>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleFileUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {hcpList.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Users className="mx-auto h-16 w-16 mb-6 opacity-50" />
+                  <p className="text-lg">No HCPs in queue</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {hcpList.map((hcp) => (
+                    <div
+                      key={hcp.id}
+                      className="flex items-center justify-between p-4 border rounded-lg bg-card/50"
+                    >
+                      <div className="space-y-1">
+                        <h4 className="font-semibold text-base">{hcp.name}</h4>
+                        {hcp.specialty && (
+                          <p className="text-sm text-muted-foreground">
+                            {hcp.specialty}
+                          </p>
+                        )}
+                        {hcp.affiliation && (
+                          <p className="text-xs text-muted-foreground">
+                            {hcp.affiliation}
+                          </p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeHCP(hcp.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <div
           className={`grid gap-8 ${
             processingStatus === "completed" && profiles.length > 0
@@ -352,7 +537,10 @@ export default function HCPProfilingTool() {
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
-                  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors relative">
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors relative"
+                    {...dragDropHandlers}
+                  >
                     <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                     <div className="space-y-2">
                       <p className="text-sm font-medium">
@@ -874,6 +1062,7 @@ export default function HCPProfilingTool() {
                     <Button
                       variant="outline"
                       className="py-4 px-8 text-base font-semibold bg-transparent"
+                      onClick={exportToCSV}
                     >
                       <FileText className="mr-2 h-5 w-5" />
                       Export Profiles

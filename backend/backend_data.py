@@ -330,10 +330,10 @@ def process_npi_list(npi_list, output_path="hcp_profiles.xlsx"):
 # Example Run
 # =======================
 if __name__ == "__main__":
-    file_path = r'C:/Users/a6993/OneDrive - Axtria/Excel/NPI ID.csv'
+    file_path = r'hcp_id.csv'
     npi_list = []
     with open(file_path, mode='r') as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             npi_list.append(row['NPI'])
-    process_npi_list(npi_list, output_path="C:/Users/a6993/Local_Documents/Hackathon/hcp_profiles.xlsx")
+    process_npi_list(npi_list, output_path="hcp_profiles.xlsx")
