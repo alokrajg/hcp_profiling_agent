@@ -5,6 +5,8 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
+    "dev:backend": "python3 start_backend.py",
+    "dev:full": "concurrently \"npm run dev:backend\" \"npm run dev\"",
     "lint": "next lint",
     "start": "next start"
   },

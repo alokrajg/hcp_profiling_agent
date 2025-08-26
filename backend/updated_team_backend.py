@@ -40,6 +40,11 @@ class Agent:
         raise NotImplementedError
 
     def call_llm(self, prompt):
+        # Check if Azure OpenAI is properly configured
+        if not AZURE_API_KEY or AZURE_API_KEY == "your-key-here":
+            print("[WARNING] Azure OpenAI not configured - using fallback data")
+            return None
+            
         try:
             resp = client.chat.completions.create(
                 model=DEPLOYMENT_NAME,
@@ -52,6 +57,7 @@ class Agent:
             return resp.choices[0].message.content
         except Exception as e:
             print(f"[ERROR] LLM call failed: {e}")
+            print("[INFO] Using fallback data instead of AI analysis")
             return None
 
 
@@ -431,10 +437,10 @@ def process_npi_list(npi_list, output_path="hcp_profiles.xlsx"):
 # Example Run
 # =======================
 if __name__ == "__main__":
-    file_path = r'C:/Users/A6110.AXTRIA/Desktop/HCP_PROFILING/hcp_npi_ids.csv'
+    file_path = r'hcp_id.csv'
     npi_list = []
     with open(file_path, mode='r') as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
             npi_list.append(row['NPI'])
-    process_npi_list(npi_list, output_path="C:/Users/A6110.AXTRIA/Desktop/HCP_PROFILING/hcp_profiles.xlsx")
+    process_npi_list(npi_list, output_path="hcp_profiles.xlsx")
