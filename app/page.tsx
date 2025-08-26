@@ -95,7 +95,7 @@ interface HCPProfile {
   publicationYears?: string;
   topPublicationJournals?: string;
   topPublicationTitles?: string;
-  journalClassification?: string;
+  journalClassification?: any; // Array of objects with journal and tier
   researchPrestigeScore?: number;
   topInfluentialPublications?: string;
   totalTrials?: number;
@@ -112,6 +112,10 @@ interface HCPProfile {
   practiceState?: string;
   education?: string;
   affiliations?: string;
+  // Additional fields from API response
+  First_Name?: string;
+  Last_Name?: string;
+  num_publications?: number;
 }
 
 export default function HCPProfilingTool() {
@@ -308,6 +312,7 @@ export default function HCPProfilingTool() {
       "Specialty",
       "Affiliation",
       "Location",
+      "Education",
       "Degrees",
       "Gender",
       "Research Score",
@@ -316,11 +321,13 @@ export default function HCPProfilingTool() {
       "Practice City",
       "Practice State",
       "Publications",
+      "Journal Classification",
       "Top Journals",
       "Top Titles",
       "Influential Publications",
       "Conditions",
       "Interventions",
+      "Roles",
       "Leadership Roles",
       "Impact Summary",
       "Social Media",
@@ -340,8 +347,9 @@ export default function HCPProfilingTool() {
         [
           `"${profile.fullName}"`,
           `"${profile.specialty}"`,
-          `"${profile.affiliation}"`,
+          `"${profile.affiliations || profile.affiliation || ""}"`,
           `"${profile.location}"`,
+          `"${profile.education || profile.degrees || ""}"`,
           `"${profile.degrees}"`,
           `"${profile.gender || ""}"`,
           `"${profile.researchPrestigeScore || 0}"`,
@@ -349,12 +357,18 @@ export default function HCPProfilingTool() {
           `"${profile.publicationYears || ""}"`,
           `"${profile.practiceCity || ""}"`,
           `"${profile.practiceState || ""}"`,
-          `"${profile.publications || 0}"`,
+          `"${profile.publications || profile.num_publications || 0}"`,
+          `"${
+            profile.journalClassification
+              ? JSON.stringify(profile.journalClassification)
+              : ""
+          }"`,
           `"${profile.topPublicationJournals || ""}"`,
           `"${profile.topPublicationTitles || ""}"`,
           `"${profile.topInfluentialPublications || ""}"`,
           `"${profile.conditions || ""}"`,
           `"${profile.interventions || ""}"`,
+          `"${profile.roles || ""}"`,
           `"${profile.leadershipRoles || ""}"`,
           `"${profile.impactSummary || ""}"`,
           `"${profile.socialMediaHandles.linkedin || ""}"`,
@@ -639,6 +653,9 @@ export default function HCPProfilingTool() {
                             Location
                           </TableHead>
                           <TableHead className="font-bold text-card-foreground py-4 px-4">
+                            Education
+                          </TableHead>
+                          <TableHead className="font-bold text-card-foreground py-4 px-4">
                             Degrees
                           </TableHead>
                           <TableHead className="font-bold text-card-foreground py-4 px-4">
@@ -708,6 +725,9 @@ export default function HCPProfilingTool() {
                             Publications
                           </TableHead>
                           <TableHead className="font-bold text-card-foreground py-4 px-4">
+                            Journal Classification
+                          </TableHead>
+                          <TableHead className="font-bold text-card-foreground py-4 px-4">
                             Top Journals
                           </TableHead>
                           <TableHead className="font-bold text-card-foreground py-4 px-4">
@@ -721,6 +741,9 @@ export default function HCPProfilingTool() {
                           </TableHead>
                           <TableHead className="font-bold text-card-foreground py-4 px-4">
                             Interventions
+                          </TableHead>
+                          <TableHead className="font-bold text-card-foreground py-4 px-4">
+                            Roles
                           </TableHead>
                           <TableHead className="font-bold text-card-foreground py-4 px-4">
                             Leadership Roles
@@ -755,13 +778,29 @@ export default function HCPProfilingTool() {
                               <TableCell className="py-3 font-medium">
                                 <div
                                   className="text-xs text-muted-foreground max-w-48 truncate"
-                                  title={profile.affiliation || "N/A"}
+                                  title={
+                                    profile.affiliations ||
+                                    profile.affiliation ||
+                                    "N/A"
+                                  }
                                 >
-                                  {profile.affiliation || "N/A"}
+                                  {profile.affiliations ||
+                                    profile.affiliation ||
+                                    "N/A"}
                                 </div>
                               </TableCell>
                               <TableCell className="py-3 text-muted-foreground">
                                 {profile.location}
+                              </TableCell>
+                              <TableCell className="py-3">
+                                <Badge
+                                  variant="outline"
+                                  className="font-medium"
+                                >
+                                  {profile.education ||
+                                    profile.degrees ||
+                                    "N/A"}
+                                </Badge>
                               </TableCell>
                               <TableCell className="py-3">
                                 <Badge
@@ -963,6 +1002,27 @@ export default function HCPProfilingTool() {
                                   <div
                                     className="text-xs text-muted-foreground max-w-32 truncate"
                                     title={
+                                      profile.journalClassification
+                                        ? JSON.stringify(
+                                            profile.journalClassification
+                                          )
+                                        : "N/A"
+                                    }
+                                  >
+                                    {profile.journalClassification
+                                      ? `${
+                                          profile.journalClassification
+                                            .length || 0
+                                        } journals`
+                                      : "N/A"}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-6">
+                                <div className="text-center">
+                                  <div
+                                    className="text-xs text-muted-foreground max-w-32 truncate"
+                                    title={
                                       profile.topPublicationJournals || "N/A"
                                     }
                                   >
@@ -1013,6 +1073,16 @@ export default function HCPProfilingTool() {
                                     title={profile.interventions || "N/A"}
                                   >
                                     {profile.interventions || "N/A"}
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-6">
+                                <div className="text-center">
+                                  <div
+                                    className="text-xs text-muted-foreground max-w-32 truncate"
+                                    title={profile.roles || "N/A"}
+                                  >
+                                    {profile.roles || "N/A"}
                                   </div>
                                 </div>
                               </TableCell>
